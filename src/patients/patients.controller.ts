@@ -38,4 +38,26 @@ export class PatientsController {
   fix() {
     return this.service.fixTriage();
   }
+
+@Patch(':id')
+update(
+  @Param('id') id: string,
+  @Body() body: any,
+) {
+  return this.service.update(id, body);
+}
+
+@Delete(':id')
+remove(@Param('id') id: string) {
+  return this.service.remove(id);
+}
+
+@Patch(':id/vitals')
+updateVitals(
+  @Param('id') id: string,
+  @Body() vitalSigns: any,
+) {
+  return this.service.updateVitals(id, vitalSigns);
+}
+
 }

@@ -78,11 +78,6 @@ export class UploadAudioDto {
   patientId: string;
 
   @IsString()
-  @IsNotEmpty({ message: "El ID del médico es requerido" })
-  @IsMongoId({ message: "El ID del médico debe ser un MongoDB ID válido" })
-  doctorId: string;
-
-  @IsString()
   @IsOptional()
   @MaxLength(500, {
     message: "El contexto no puede exceder 500 caracteres",
@@ -119,3 +114,60 @@ export class ProcessAudioDto {
   @IsOptional()
   specialty?: string;
 }
+<<<<<<< HEAD
+=======
+
+export class ProcessAudioWithFeedbackDto {
+  @IsString()
+  @IsNotEmpty({ message: "El ID del paciente es requerido" })
+  @IsMongoId()
+  patientId: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(10)
+  @MaxLength(5000)
+  transcription?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  context?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsEnum([
+    "Trauma",
+    "Pediatría",
+    "Cirugía",
+    "Cardiología",
+    "Neurología",
+    "General",
+    "Otro",
+  ])
+  specialty?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsEnum(["Moscati Juriquilla", "Moscati Centro", "Moscati Satélite"])
+  hospitalUnit?: string;
+
+  @IsString()
+  @IsOptional()
+  audioUrl?: string;
+
+  generateFeedback?: boolean;
+}
+
+export class SubmitFeedbackResponseDto {
+  @IsString()
+  @IsNotEmpty({ message: "El ID del reporte es requerido" })
+  reportId: string;
+
+  @IsNotEmpty({ message: "Las respuestas son requeridas" })
+  responses: Array<{
+    questionId: string;
+    answer: string;
+  }>;
+}
+>>>>>>> 7803b51975bb91de49c09a55b360156650f6a8b2

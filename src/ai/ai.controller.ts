@@ -28,7 +28,7 @@ export class AiController {
   @Post("process")
   async processClinicDictation(@Body() dto: ProcessScribingDto) {
     try {
-      this.logger.log(`📋 Procesando dictado del doctor: ${dto.doctorId}`);
+      this.logger.log(`📋 Procesando dictado del paciente: ${dto.patientId}`);
 
       const result = await this.aiService.processClinicDictationWithAudio(
         dto.dictation,
