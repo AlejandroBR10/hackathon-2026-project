@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 export type PatientDocument = Patient & Document;
 
@@ -16,7 +16,6 @@ class VitalSigns {
 
 @Schema({ timestamps: true })
 export class Patient {
-
   @Prop({ required: true })
   name!: string;
 
@@ -34,6 +33,12 @@ export class Patient {
 
   @Prop({ type: VitalSigns })
   vitalSigns!: VitalSigns;
+
+  @Prop({ type: Object })
+  triage!: {
+    level: string;
+    score: number;
+  };
 }
 
 export const PatientSchema = SchemaFactory.createForClass(Patient);
