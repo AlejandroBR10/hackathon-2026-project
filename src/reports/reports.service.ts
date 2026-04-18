@@ -91,14 +91,8 @@ export class ReportsService {
 
       const report = await this.reportModel.create({
         patientId: dto.patientId,
-<<<<<<< HEAD
         doctorId: dto.doctorId,
         especialidad: analysisResult.analysis.especialidad || "General",
-=======
-        // TODO: Obtener doctorId del usuario autenticado (JWT)
-        // doctorId se asignará desde el contexto de autenticación
-        especialidad: dto.specialty || "General",
->>>>>>> 7803b51975bb91de49c09a55b360156650f6a8b2
         resumen: analysisResult.analysis.resumen,
         diagnostico_presuntivo: analysisResult.analysis.diagnostico_presuntivo,
         soap: analysisResult.analysis.soap,

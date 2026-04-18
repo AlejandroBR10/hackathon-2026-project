@@ -56,7 +56,7 @@ export class ProcessAudioWithFeedbackDto {
 /**
  * DTO para enviar respuestas de retroalimentación
  */
-export class SubmitFeedbackResponseDto {
+/*export class SubmitFeedbackResponseDto {
   @IsString()
   @IsNotEmpty({ message: "El ID del reporte es requerido" })
   reportId: string;
@@ -66,7 +66,7 @@ export class SubmitFeedbackResponseDto {
     questionId: string;
     answer: string;
   }>;
-}
+}*/
 
 /**
  * DTO para actualizar un reporte
@@ -114,9 +114,7 @@ export class ProcessAudioDto {
   @IsOptional()
   specialty?: string;
 }
-<<<<<<< HEAD
-=======
-
+/*
 export class ProcessAudioWithFeedbackDto {
   @IsString()
   @IsNotEmpty({ message: "El ID del paciente es requerido" })
@@ -157,7 +155,7 @@ export class ProcessAudioWithFeedbackDto {
   audioUrl?: string;
 
   generateFeedback?: boolean;
-}
+}*/
 
 export class SubmitFeedbackResponseDto {
   @IsString()
@@ -170,4 +168,3 @@ export class SubmitFeedbackResponseDto {
     answer: string;
   }>;
 }
->>>>>>> 7803b51975bb91de49c09a55b360156650f6a8b2
