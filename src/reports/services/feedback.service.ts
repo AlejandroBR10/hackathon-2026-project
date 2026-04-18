@@ -68,7 +68,7 @@ export class FeedbackService {
       this.logger.log("🤔 Generando preguntas de retroalimentación clínica...");
 
       const model = this.client.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0.5,
@@ -215,7 +215,7 @@ REQUERIMIENTOS:
       this.logger.log("📊 Procesando respuestas de retroalimentación...");
 
       const model = this.client.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         generationConfig: {
           responseMimeType: "application/json",
         },

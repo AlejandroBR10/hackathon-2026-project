@@ -26,7 +26,7 @@ export class ElevenlabsService {
 
     this.voiceId = this.configService.get<string>(
       "ELEVENLABS_VOICE_ID",
-      "Antoni",
+      "W5JElH3dK1UYYAiHH7uh", // Voice ID válido de ElevenLabs (...)
     );
     this.stability = parseFloat(
       this.configService.get<string>("ELEVENLABS_STABILITY", "0.5"),

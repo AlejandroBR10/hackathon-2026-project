@@ -14,13 +14,14 @@ import {
   Logger,
   HttpCode,
   HttpStatus,
+  NotFoundException,
+  Res,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ReportsService } from "./reports.service";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { UpdateReportDto } from "./dto/update-report.dto";
 import {
-  UploadAudioDto,
   ProcessAudioWithFeedbackDto,
   SubmitFeedbackResponseDto,
 } from "./dto/upload-audio.dto";
@@ -32,7 +33,7 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   /**
-   * 🎙️ ENDPOINT PRINCIPAL: Sube audio, lo transcribe, analiza y genera retroalimentación
+   * 🎙️ Endpoint Principal: Procesar audio con análisis completo
    * POST /reports/upload-audio-with-feedback
    */
   @Post("upload-audio-with-feedback")
@@ -48,7 +49,7 @@ export class ReportsController {
       }
 
       this.logger.log(
-        `📥 Recibido audio (${(file.size / 1024).toFixed(2)} KB) del paciente: ${dto.patientId}`,
+        `📥 Audio recibido: ${(file.size / 1024).toFixed(2)} KB - Paciente: ${dto.patientId}`,
       );
 
       const audioFormat = this.getAudioFormatFromMimeType(file.mimetype);
@@ -74,10 +75,10 @@ export class ReportsController {
             audioBase64: qa.audioBase64,
           }),
         ),
-        message: `✅ Audio procesado. ${result.feedback.questions.length} preguntas de retroalimentación generadas.`,
+        message: `✅ Audio procesado. ${result.feedback.questions.length} preguntas generadas.`,
       };
     } catch (error: any) {
-      this.logger.error(`❌ Error procesando audio: ${error.message}`);
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new InternalServerErrorException(
         `Error procesando audio: ${error.message}`,
       );
@@ -85,7 +86,7 @@ export class ReportsController {
   }
 
   /**
-   * ⚡ VERSIÓN RÁPIDA: Solo transcripción de audio
+   * ⚡ Transcribir solo (sin análisis)
    * POST /reports/transcribe-audio
    */
   @Post("transcribe-audio")
@@ -100,9 +101,7 @@ export class ReportsController {
         throw new BadRequestException("Se requiere un archivo de audio");
       }
 
-      this.logger.log(
-        `📝 Transcribiendo audio (${(file.size / 1024).toFixed(2)} KB)...`,
-      );
+      this.logger.log(`📝 Transcribiendo: ${(file.size / 1024).toFixed(2)} KB`);
 
       const audioFormat = this.getAudioFormatFromMimeType(file.mimetype);
 
@@ -115,18 +114,16 @@ export class ReportsController {
       return {
         success: true,
         ...result,
-        message: `✅ Audio transcrito correctamente`,
+        message: `✅ Transcripción completada`,
       };
     } catch (error: any) {
-      this.logger.error(`❌ Error transcribiendo: ${error.message}`);
-      throw new InternalServerErrorException(
-        `Error en transcripción: ${error.message}`,
-      );
+      this.logger.error(`❌ Error: ${error.message}`);
+      throw new InternalServerErrorException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * 📝 Procesa dictado directo (sin archivo de audio)
+   * 📝 Procesar dictado directo (texto en lugar de audio)
    * POST /reports/process-dictation-with-feedback
    */
   @Post("process-dictation-with-feedback")
@@ -134,12 +131,10 @@ export class ReportsController {
   async processDictationWithFeedback(@Body() dto: ProcessAudioWithFeedbackDto) {
     try {
       if (!dto.transcription || dto.transcription.trim().length === 0) {
-        throw new BadRequestException("La transcripción es requerida");
+        throw new BadRequestException("Se requiere una transcripción");
       }
 
-      this.logger.log(
-        `📝 Procesando dictado directo del paciente: ${dto.patientId}`,
-      );
+      this.logger.log(`📝 Procesando dictado del paciente: ${dto.patientId}`);
 
       const result = await this.reportsService.processAudioWithCompletePipeline(
         Buffer.from(dto.transcription),
@@ -157,13 +152,13 @@ export class ReportsController {
         message: `✅ Dictado procesado exitosamente`,
       };
     } catch (error: any) {
-      this.logger.error(`❌ Error procesando dictado: ${error.message}`);
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new InternalServerErrorException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * 💬 Envía respuestas a las preguntas de retroalimentación
+   * 💬 Enviar respuestas de retroalimentación
    * POST /reports/:reportId/submit-feedback
    */
   @Post(":reportId/submit-feedback")
@@ -177,7 +172,7 @@ export class ReportsController {
         throw new BadRequestException("Se requieren respuestas");
       }
 
-      this.logger.log(`💬 Recibiendo respuestas para reporte: ${reportId}`);
+      this.logger.log(`💬 Retroalimentación recibida para: ${reportId}`);
 
       const result = await this.reportsService.submitFeedbackResponses(
         reportId,
@@ -190,21 +185,120 @@ export class ReportsController {
         message: `✅ Retroalimentación procesada. Validez: ${result.validityScore}%`,
       };
     } catch (error: any) {
-      this.logger.error(
-        `❌ Error procesando retroalimentación: ${error.message}`,
-      );
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new InternalServerErrorException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * 📋 Obtiene todos los reportes
+   * 🏁 Finalizar reporte - Cierra ciclo de feedback
+   * POST /reports/:reportId/finalize
+   */
+  @Post(":reportId/finalize")
+  @HttpCode(HttpStatus.OK)
+  async finalizeReport(
+    @Param("reportId") reportId: string,
+    @Body() dto?: { finalNotes?: string },
+  ) {
+    try {
+      this.logger.log(`🏁 Finalizando reporte: ${reportId}`);
+
+      const result = await this.reportsService.finalizeReport(
+        reportId,
+        dto?.finalNotes,
+      );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error: any) {
+      this.logger.error(`❌ Error: ${error.message}`);
+      throw new InternalServerErrorException(`Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * 🔊 Descargar audio de pregunta de retroalimentación
+   * GET /reports/:reportId/question/:questionId/audio
+   */
+  @Get(":reportId/question/:questionId/audio")
+  @HttpCode(HttpStatus.OK)
+  async getQuestionAudio(
+    @Param("reportId") reportId: string,
+    @Param("questionId") questionId: string,
+    @Res() res: any,
+  ) {
+    try {
+      this.logger.log(
+        `🔊 Descargando audio de pregunta: ${questionId} del reporte: ${reportId}`,
+      );
+
+      // Obtener reporte con metadata
+      const report = await this.reportsService.findOne(reportId);
+
+      if (!report) {
+        throw new NotFoundException(`Reporte no encontrado: ${reportId}`);
+      }
+
+      // Buscar pregunta en metadata
+      const question = report.metadata?.feedbackQuestions?.find(
+        (q: any) => q.id === questionId,
+      );
+
+      if (!question) {
+        throw new NotFoundException(`Pregunta no encontrada: ${questionId}`);
+      }
+
+      // Buscar audio base64 en feedbackQuestionsWithAudio
+      let audioBase64 = null;
+
+      const questionWithAudio =
+        report.metadata?.feedbackQuestionsWithAudio?.find(
+          (q: any) => q.question?.id === questionId,
+        );
+
+      if (questionWithAudio?.audioBase64) {
+        audioBase64 = questionWithAudio.audioBase64;
+      }
+
+      if (!audioBase64) {
+        throw new NotFoundException(
+          `Audio no disponible para la pregunta: ${questionId}`,
+        );
+      }
+
+      // Convertir base64 a Buffer
+      const audioBuffer = Buffer.from(audioBase64, "base64");
+
+      // Configurar headers para descarga MP3
+      res.setHeader("Content-Type", "audio/mp3");
+      res.setHeader("Content-Length", audioBuffer.length);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="pregunta-${questionId}.mp3"`,
+      );
+
+      this.logger.log(
+        `✅ Audio enviado: ${(audioBuffer.length / 1024).toFixed(2)} KB`,
+      );
+
+      res.send(audioBuffer);
+    } catch (error: any) {
+      this.logger.error(`❌ Error descargando audio: ${error.message}`);
+      throw new InternalServerErrorException(`Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * 📋 Obtener todos los reportes
    * GET /reports?limit=50&skip=0
    */
   @Get()
+  @HttpCode(HttpStatus.OK)
   async findAll(@Query("limit") limit?: string, @Query("skip") skip?: string) {
     try {
-      this.logger.log("📋 Obteniendo todos los reportes...");
+      this.logger.log("📋 Obteniendo reportes...");
 
       const result = await this.reportsService.findAll(
         parseInt(limit || "50"),
@@ -216,19 +310,20 @@ export class ReportsController {
         ...result,
       };
     } catch (error: any) {
-      this.logger.error(`❌ Error obteniendo reportes: ${error.message}`);
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new InternalServerErrorException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * 🚨 Obtiene reportes críticos (triage 4-5)
+   * 🚨 Reportes críticos (triage 4-5)
    * GET /reports/critical
    */
   @Get("critical")
+  @HttpCode(HttpStatus.OK)
   async getCriticalReports() {
     try {
-      this.logger.log("🚨 Obteniendo reportes críticos...");
+      this.logger.log("🚨 Reportes críticos...");
 
       const result = await this.reportsService.getCriticalReports();
 
@@ -237,21 +332,45 @@ export class ReportsController {
         ...result,
       };
     } catch (error: any) {
-      this.logger.error(
-        `❌ Error obteniendo reportes críticos: ${error.message}`,
-      );
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new InternalServerErrorException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * 📊 Obtiene estadísticas de reportes
+   * 🏥 Reportes por especialidad
+   * GET /reports/specialty/:specialty?limit=50
+   */
+  @Get("specialty/:specialty")
+  @HttpCode(HttpStatus.OK)
+  async findBySpecialty(
+    @Param("specialty") specialty: string,
+    @Query("limit") limit?: string,
+  ) {
+    try {
+      this.logger.log(`🏥 Reportes de especialidad: ${specialty}`);
+
+      const reports = await this.reportsService.findBySpecialty(specialty);
+
+      return {
+        success: true,
+        ...reports,
+      };
+    } catch (error: any) {
+      this.logger.error(`❌ Error: ${error.message}`);
+      throw new InternalServerErrorException(`Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * 📊 Estadísticas generales
    * GET /reports/stats
    */
   @Get("stats")
+  @HttpCode(HttpStatus.OK)
   async getStatistics() {
     try {
-      this.logger.log("📊 Generando estadísticas...");
+      this.logger.log("📊 Estadísticas...");
 
       const result = await this.reportsService.getStatistics();
 
@@ -260,19 +379,20 @@ export class ReportsController {
         ...result,
       };
     } catch (error: any) {
-      this.logger.error(`❌ Error obteniendo estadísticas: ${error.message}`);
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new InternalServerErrorException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * 📋 Obtiene reportes de un paciente específico
+   * 👤 Reportes de un paciente
    * GET /reports/patient/:patientId
    */
   @Get("patient/:patientId")
+  @HttpCode(HttpStatus.OK)
   async findByPatient(@Param("patientId") patientId: string) {
     try {
-      this.logger.log(`📋 Obteniendo reportes del paciente: ${patientId}`);
+      this.logger.log(`👤 Reportes del paciente: ${patientId}`);
 
       const result = await this.reportsService.findByPatient(patientId);
 
@@ -287,13 +407,14 @@ export class ReportsController {
   }
 
   /**
-   * 📋 Obtiene reportes de un médico específico
+   * 👨‍⚕️ Reportes de un médico/profesional
    * GET /reports/doctor/:doctorId
    */
   @Get("doctor/:doctorId")
+  @HttpCode(HttpStatus.OK)
   async findByDoctor(@Param("doctorId") doctorId: string) {
     try {
-      this.logger.log(`📋 Obteniendo reportes del médico: ${doctorId}`);
+      this.logger.log(`👨‍⚕️ Reportes del profesional: ${doctorId}`);
 
       const result = await this.reportsService.findByDoctor(doctorId);
 
@@ -308,10 +429,12 @@ export class ReportsController {
   }
 
   /**
-   * 📄 Obtiene un reporte específico por ID
+   * 📄 Obtener un reporte por ID
    * GET /reports/:id
+   * Incluye categorización calculada dinámicamente
    */
   @Get(":id")
+  @HttpCode(HttpStatus.OK)
   async findOne(@Param("id") id: string) {
     try {
       this.logger.log(`📄 Obteniendo reporte: ${id}`);
@@ -329,37 +452,7 @@ export class ReportsController {
   }
 
   /**
-   * ✏️ Marca un reporte como revisado por médico
-   * PATCH /reports/:id/mark-reviewed
-   */
-  @Patch(":id/mark-reviewed")
-  @HttpCode(HttpStatus.OK)
-  async markAsReviewed(
-    @Param("id") id: string,
-    @Body() dto: { medicoRevisorId: string; notes?: string },
-  ) {
-    try {
-      this.logger.log(`✏️ Marcando como revisado: ${id}`);
-
-      const result = await this.reportsService.markAsReviewed(
-        id,
-        dto.medicoRevisorId,
-        dto.notes,
-      );
-
-      return {
-        success: true,
-        ...result,
-        message: `✅ Reporte marcado como revisado`,
-      };
-    } catch (error: any) {
-      this.logger.error(`❌ Error: ${error.message}`);
-      throw new InternalServerErrorException(`Error: ${error.message}`);
-    }
-  }
-
-  /**
-   * 📝 Actualiza un reporte
+   * ✏️ Actualizar un reporte
    * PATCH /reports/:id
    */
   @Patch(":id")
@@ -369,7 +462,7 @@ export class ReportsController {
     @Body() updateReportDto: UpdateReportDto,
   ) {
     try {
-      this.logger.log(`📝 Actualizando reporte: ${id}`);
+      this.logger.log(`✏️ Actualizando: ${id}`);
 
       const result = await this.reportsService.update(id, updateReportDto);
 
@@ -385,14 +478,14 @@ export class ReportsController {
   }
 
   /**
-   * 🗑️ Elimina un reporte
+   * 🗑️ Eliminar un reporte
    * DELETE /reports/:id
    */
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   async remove(@Param("id") id: string) {
     try {
-      this.logger.log(`🗑️ Eliminando reporte: ${id}`);
+      this.logger.log(`🗑️ Eliminando: ${id}`);
 
       const result = await this.reportsService.remove(id);
 

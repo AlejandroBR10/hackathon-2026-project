@@ -39,8 +39,9 @@ export class TriageInfo {
 const TriageInfoSchema = SchemaFactory.createForClass(TriageInfo);
 
 /**
- * Esquema principal del Reporte Clínico
- * Almacena el análisis médico completo, incluyendo SOAP, triage y audio
+ * Esquema principal del Reporte Clínico - SIMPLIFICADO Y OPTIMIZADO
+ * Solo campos esenciales: patientId, doctorId, especialidad, análisis
+ * La categorización es DINÁMICA (se calcula al consultar, no se guarda)
  */
 @Schema({ timestamps: true, collection: "clinical_reports" })
 export class ClinicalReport extends Document {
@@ -50,19 +51,11 @@ export class ClinicalReport extends Document {
   @Prop({ type: Types.ObjectId, required: true, index: true })
   doctorId: Types.ObjectId;
 
-  @Prop({
-    type: String,
-    enum: [
-      "Trauma",
-      "Pediatría",
-      "Cirugía",
-      "Cardiología",
-      "Neurología",
-      "General",
-      "Otro",
-    ],
-    required: true,
-  })
+  /**
+   * Especialidad detectada por IA - SIN ENUM RESTRICTIVO
+   * Se almacena tal como la devuelve Gemini
+   */
+  @Prop({ type: String, required: true, index: true })
   especialidad: string;
 
   @Prop({ type: String, required: true })
@@ -84,12 +77,6 @@ export class ClinicalReport extends Document {
   hallazgos_criticos: string[];
 
   @Prop({ type: String, optional: true })
-  audioUrl?: string;
-
-  @Prop({ type: Buffer, optional: true })
-  audioBuffer?: Buffer;
-
-  @Prop({ type: String, optional: true })
   dictadoOriginal?: string;
 
   @Prop({ type: Number, default: 0 })
@@ -97,13 +84,19 @@ export class ClinicalReport extends Document {
 
   @Prop({
     type: String,
-    enum: ["pendiente", "procesado", "error", "enviado_paciente"],
+    enum: [
+      "pendiente",
+      "procesado",
+      "error",
+      "enviado_paciente",
+      "awaiting_feedback",
+    ],
     default: "procesado",
   })
   estado: string;
 
   @Prop({ type: String, optional: true })
-  notas: string;
+  notas?: string;
 
   @Prop({ type: Date, default: Date.now, index: true })
   procesadoEn: Date;
@@ -137,7 +130,7 @@ export const ClinicalReportSchema =
 // Type export for use in services
 export type ClinicalReportDocument = ClinicalReport & Document;
 
-// Índices para optimización de queries
+// Índices optimizados - solo lo esencial
 ClinicalReportSchema.index({ patientId: 1, procesadoEn: -1 });
 ClinicalReportSchema.index({ doctorId: 1, procesadoEn: -1 });
 ClinicalReportSchema.index({ estado: 1, procesadoEn: -1 });

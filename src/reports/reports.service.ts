@@ -15,7 +15,6 @@ import { AiService } from "../ai/ai.service";
 import { GeminiService } from "../ai/services/gemini.service";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { UpdateReportDto } from "./dto/update-report.dto";
-import { UploadAudioDto } from "./dto/upload-audio.dto";
 import { ProcessAudioWithFeedbackDto } from "./dto/upload-audio.dto";
 
 interface AudioProcessingPipeline {
@@ -45,7 +44,8 @@ export class ReportsService {
   ) {}
 
   /**
-   * Pipeline completo: Audio → Transcripción → Análisis → Retroalimentación
+   * Pipeline simplificado: Audio → Transcripción → Análisis → Guardar
+   * Solo almacena: patientId, doctorId, especialidad, análisis (sin sobrecarga BD)
    */
   async processAudioWithCompletePipeline(
     audioBuffer: Buffer,
@@ -55,7 +55,7 @@ export class ReportsService {
     const startTime = Date.now();
 
     try {
-      this.logger.log("🎤 Iniciando pipeline completo de audio...");
+      this.logger.log("🎤 Iniciando procesamiento de audio...");
 
       // PASO 1: Transcribir audio
       this.logger.log("📝 Paso 1: Transcribiendo audio...");
@@ -66,7 +66,7 @@ export class ReportsService {
       );
       const transcription = audioResult.transcription.text;
       this.logger.log(
-        `✅ Audio transcrito: ${transcription.substring(0, 100)}...`,
+        `✅ Audio transcrito: ${transcription.substring(0, 80)}...`,
       );
 
       // PASO 2: Analizar con Gemini
@@ -75,7 +75,7 @@ export class ReportsService {
         await this.aiService.processClinicDictationWithAudio(
           transcription,
           dto.context,
-          false, // No generar audio de Gemini
+          false,
         );
 
       if (!analysisResult.success || !analysisResult.analysis) {
@@ -83,15 +83,16 @@ export class ReportsService {
       }
 
       this.logger.log(
-        `✅ Análisis completado. Triage: ${analysisResult.analysis.nivel_triage}`,
+        `✅ Análisis completado. Especialidad: ${analysisResult.analysis.especialidad}`,
       );
 
-      // PASO 3: Guardar reporte inicial
+      // PASO 3: Guardar reporte SIMPLIFICADO
       this.logger.log("💾 Paso 3: Guardando reporte...");
+
       const report = await this.reportModel.create({
         patientId: dto.patientId,
         doctorId: dto.doctorId,
-        especialidad: dto.specialty || "General",
+        especialidad: analysisResult.analysis.especialidad || "General",
         resumen: analysisResult.analysis.resumen,
         diagnostico_presuntivo: analysisResult.analysis.diagnostico_presuntivo,
         soap: analysisResult.analysis.soap,
@@ -142,17 +143,19 @@ export class ReportsService {
           `✅ ${questionsWithAudio.length} preguntas sintetizadas`,
         );
 
-        // Guardar preguntas en el reporte
+        // Guardar preguntas en metadata y cambiar estado a awaiting_feedback
         await this.reportModel.updateOne(
           { _id: report._id },
           {
             $set: {
+              estado: "awaiting_feedback",
               "metadata.feedbackQuestions": feedbackQuestions.map((q) => ({
                 id: q.id,
                 question: q.question,
                 category: q.category,
                 importance: q.importance,
               })),
+              "metadata.feedbackGeneratedAt": new Date(),
             },
           },
         );
@@ -177,36 +180,8 @@ export class ReportsService {
   }
 
   /**
-   * Procesa solo la transcripción de audio sin análisis
-   */
-  async transcribeAudioOnly(
-    audioBuffer: Buffer,
-    audioFormat: string = "mp3",
-    context?: string,
-  ): Promise<any> {
-    try {
-      this.logger.log("🎙️ Transcribiendo audio...");
-
-      const result = await this.audioService.processAudioBuffer(
-        audioBuffer,
-        audioFormat,
-        context,
-      );
-
-      return {
-        success: true,
-        transcription: result.transcription.text,
-        audioSizeBytes: result.audioSizeBytes,
-        processingTimeMs: result.processingTimeMs,
-      };
-    } catch (error) {
-      this.logger.error(`❌ Error transcribiendo: ${error.message}`);
-      throw new BadRequestException(`Error en transcripción: ${error.message}`);
-    }
-  }
-
-  /**
    * Obtiene un reporte por ID
+   * Calcula categorización DINÁMICA basada en análisis
    */
   async findOne(id: string): Promise<any> {
     try {
@@ -218,7 +193,7 @@ export class ReportsService {
 
       return {
         success: true,
-        report,
+        report: this.enriquecerReporte(report),
       };
     } catch (error) {
       this.logger.error(`❌ Error obteniendo reporte: ${error.message}`);
@@ -230,6 +205,7 @@ export class ReportsService {
 
   /**
    * Obtiene reportes de un paciente
+   * Relación: patientId → reportes
    */
   async findByPatient(patientId: string): Promise<any> {
     try {
@@ -245,7 +221,7 @@ export class ReportsService {
       return {
         success: true,
         count: reports.length,
-        reports,
+        reports: reports.map((r) => this.enriquecerReporte(r)),
       };
     } catch (error) {
       this.logger.error(`❌ Error obteniendo reportes: ${error.message}`);
@@ -257,6 +233,7 @@ export class ReportsService {
 
   /**
    * Obtiene reportes de un médico
+   * Relación: doctorId → reportes
    */
   async findByDoctor(doctorId: string): Promise<any> {
     try {
@@ -270,7 +247,7 @@ export class ReportsService {
       return {
         success: true,
         count: reports.length,
-        reports,
+        reports: reports.map((r) => this.enriquecerReporte(r)),
       };
     } catch (error) {
       this.logger.error(`❌ Error obteniendo reportes: ${error.message}`);
@@ -300,7 +277,7 @@ export class ReportsService {
         success: true,
         total,
         count: reports.length,
-        reports,
+        reports: reports.map((r) => this.enriquecerReporte(r)),
       };
     } catch (error) {
       this.logger.error(`❌ Error obteniendo reportes: ${error.message}`);
@@ -309,72 +286,60 @@ export class ReportsService {
   }
 
   /**
-   * Envía respuestas a las preguntas de retroalimentación
+   * Obtiene reportes críticos (triage 4-5)
    */
-  async submitFeedbackResponses(
-    reportId: string,
-    responses: Array<{ questionId: string; answer: string }>,
-  ): Promise<any> {
+  async getCriticalReports(): Promise<any> {
     try {
-      this.logger.log(
-        `💬 Procesando respuestas de retroalimentación para reporte: ${reportId}`,
-      );
+      this.logger.log("🚨 Obteniendo reportes críticos...");
 
-      // Obtener el reporte
-      const report = await this.reportModel.findById(reportId);
-
-      if (!report) {
-        throw new BadRequestException(`Reporte no encontrado: ${reportId}`);
-      }
-
-      // Obtener las preguntas guardadas
-      const feedbackQuestions = report.metadata?.feedbackQuestions || [];
-
-      if (feedbackQuestions.length === 0) {
-        throw new BadRequestException(
-          `No hay preguntas de retroalimentación para este reporte`,
-        );
-      }
-
-      // Procesar respuestas
-      const feedbackResponses: FeedbackResponse[] = responses.map((r) => ({
-        questionId: r.questionId,
-        answer: r.answer,
-        timestamp: new Date(),
-      }));
-
-      const validationResult =
-        await this.feedbackService.processFeedbackResponses(
-          feedbackQuestions,
-          feedbackResponses,
-        );
-
-      // Guardar respuestas y validación en el reporte
-      await this.reportModel.updateOne(
-        { _id: reportId },
-        {
-          $set: {
-            "metadata.feedbackResponses": responses,
-            "metadata.validationResult": validationResult,
-            "metadata.feedbackProcessedAt": new Date(),
-          },
-        },
-      );
+      const criticalReports = await this.reportModel
+        .find({
+          "triage.nivel": { $gte: 4 },
+          estado: { $ne: "archived" },
+        })
+        .sort({ procesadoEn: -1 })
+        .lean();
 
       this.logger.log(
-        `✅ Respuestas guardadas. Validity Score: ${validationResult.validityScore}`,
+        `✅ ${criticalReports.length} reportes críticos encontrados`,
       );
 
       return {
         success: true,
-        validityScore: validationResult.validityScore,
-        criticalIssues: validationResult.criticalIssues || [],
-        recommendations: validationResult.recommendations || [],
-        summaryText: validationResult.summaryText,
-        requiresImmediateAction: validationResult.requiresImmediateAction,
+        count: criticalReports.length,
+        reports: criticalReports.map((r) => this.enriquecerReporte(r)),
       };
     } catch (error) {
-      this.logger.error(`❌ Error procesando respuestas: ${error.message}`);
+      this.logger.error(
+        `❌ Error obteniendo reportes críticos: ${error.message}`,
+      );
+      throw new BadRequestException(`Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtiene reportes por especialidad
+   */
+  async findBySpecialty(specialty: string): Promise<any> {
+    try {
+      this.logger.log(`🏥 Buscando especialidad: ${specialty}`);
+
+      const reports = await this.reportModel
+        .find({ especialidad: { $regex: specialty, $options: "i" } })
+        .select(
+          "_id patientId doctorId especialidad diagnostico_presuntivo triage procesadoEn",
+        )
+        .sort({ procesadoEn: -1 })
+        .lean();
+
+      return {
+        success: true,
+        specialty,
+        count: reports.length,
+        reports: reports.map((r) => this.enriquecerReporte(r)),
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error: ${error.message}`);
       throw new BadRequestException(`Error: ${error.message}`);
     }
   }
@@ -392,16 +357,11 @@ export class ReportsService {
             _id: null,
             totalReports: { $sum: 1 },
             avgTriageLevel: { $avg: "$triage.nivel" },
-            bySpecialty: {
-              $push: {
-                specialty: "$especialidad",
-                count: 1,
-              },
+            byEspecialidad: {
+              $push: "$especialidad",
             },
             byStatus: {
-              $push: {
-                status: "$estado",
-              },
+              $push: "$estado",
             },
           },
         },
@@ -441,7 +401,7 @@ export class ReportsService {
 
       return {
         success: true,
-        report: updated,
+        report: this.enriquecerReporte(updated.toObject()),
       };
     } catch (error) {
       this.logger.error(`❌ Error actualizando reporte: ${error.message}`);
@@ -475,74 +435,204 @@ export class ReportsService {
   }
 
   /**
-   * Marca un reporte como revisado por médico
+   * Envía respuestas a las preguntas de retroalimentación
    */
-  async markAsReviewed(
+  async submitFeedbackResponses(
     reportId: string,
-    medicoRevisorId: string,
-    notes?: string,
+    responses: Array<{ questionId: string; answer: string }>,
   ): Promise<any> {
     try {
-      this.logger.log(`✏️ Marcando reporte como revisado: ${reportId}`);
-
-      const updated = await this.reportModel.findByIdAndUpdate(
-        reportId,
-        {
-          $set: {
-            revisadoPorMedico: true,
-            medicoRevisor: medicoRevisorId,
-            fechaRevisionMedico: new Date(),
-            notas: notes,
-          },
-        },
-        { new: true },
+      this.logger.log(
+        `💬 Procesando respuestas de retroalimentación para reporte: ${reportId}`,
       );
 
-      if (!updated) {
+      const report = await this.reportModel.findById(reportId);
+
+      if (!report) {
         throw new BadRequestException(`Reporte no encontrado: ${reportId}`);
       }
 
-      this.logger.log(`✅ Reporte marcado como revisado`);
+      const feedbackQuestions = report.metadata?.feedbackQuestions || [];
+
+      if (feedbackQuestions.length === 0) {
+        throw new BadRequestException(
+          `No hay preguntas de retroalimentación para este reporte`,
+        );
+      }
+
+      const feedbackResponses: FeedbackResponse[] = responses.map((r) => ({
+        questionId: r.questionId,
+        answer: r.answer,
+        timestamp: new Date(),
+      }));
+
+      const validationResult =
+        await this.feedbackService.processFeedbackResponses(
+          feedbackQuestions,
+          feedbackResponses,
+        );
+
+      await this.reportModel.updateOne(
+        { _id: reportId },
+        {
+          $set: {
+            "metadata.feedbackResponses": responses,
+            "metadata.validationResult": validationResult,
+            "metadata.feedbackProcessedAt": new Date(),
+          },
+        },
+      );
+
+      this.logger.log(
+        `✅ Respuestas guardadas. Validity Score: ${validationResult.validityScore}`,
+      );
 
       return {
         success: true,
-        report: updated,
+        validityScore: validationResult.validityScore,
+        criticalIssues: validationResult.criticalIssues || [],
+        recommendations: validationResult.recommendations || [],
+        summaryText: validationResult.summaryText,
+        requiresImmediateAction: validationResult.requiresImmediateAction,
       };
     } catch (error) {
-      this.logger.error(`❌ Error marcando como revisado: ${error.message}`);
+      this.logger.error(`❌ Error procesando respuestas: ${error.message}`);
       throw new BadRequestException(`Error: ${error.message}`);
     }
   }
 
   /**
-   * Obtiene reportes críticos (triage 4-5)
+   * 🏁 FINALIZAR REPORTE - Cierra el ciclo de feedback
+   * Cambia estado de "awaiting_feedback" a "procesado"
+   * Permite agregar notas finales sin crear un nuevo reporte
    */
-  async getCriticalReports(): Promise<any> {
+  async finalizeReport(reportId: string, finalNotes?: string): Promise<any> {
     try {
-      this.logger.log("🚨 Obteniendo reportes críticos...");
+      this.logger.log(`🏁 Finalizando reporte: ${reportId}`);
 
-      const criticalReports = await this.reportModel
-        .find({
-          "triage.nivel": { $gte: 4 },
-          estado: { $ne: "archived" },
-        })
-        .sort({ procesadoEn: -1 })
-        .lean();
+      const report = await this.reportModel.findById(reportId);
+
+      if (!report) {
+        throw new BadRequestException(`Reporte no encontrado: ${reportId}`);
+      }
+
+      // Solo se puede finalizar si está en estado awaiting_feedback
+      if (report.estado !== "awaiting_feedback") {
+        this.logger.warn(
+          `⚠️ Reporte no está en estado awaiting_feedback. Estado actual: ${report.estado}`,
+        );
+      }
+
+      // Actualizar el reporte: cambiar estado y agregar notas finales si existen
+      const updateData: any = {
+        estado: "procesado",
+        "metadata.finalizedAt": new Date(),
+      };
+
+      if (finalNotes) {
+        updateData.notas = finalNotes;
+        updateData["metadata.finalNotes"] = finalNotes;
+      }
+
+      const updated = await this.reportModel.findByIdAndUpdate(
+        reportId,
+        { $set: updateData },
+        { new: true },
+      );
+
+      if (!updated) {
+        throw new BadRequestException(
+          `No se pudo actualizar el reporte: ${reportId}`,
+        );
+      }
 
       this.logger.log(
-        `✅ ${criticalReports.length} reportes críticos encontrados`,
+        `✅ Reporte finalizado. ID: ${reportId} - Estado: ${updated.estado}`,
       );
 
       return {
         success: true,
-        count: criticalReports.length,
-        reports: criticalReports,
+        reportId: updated._id.toString(),
+        estado: updated.estado,
+        finalizadoEn: updated.metadata?.finalizedAt,
+        message: "✅ Reporte finalizado exitosamente",
       };
     } catch (error) {
-      this.logger.error(
-        `❌ Error obteniendo reportes críticos: ${error.message}`,
-      );
+      this.logger.error(`❌ Error finalizando reporte: ${error.message}`);
       throw new BadRequestException(`Error: ${error.message}`);
+    }
+  }
+
+  /**
+   * FUNCIÓN AUXILIAR: Enriquece un reporte con categorización DINÁMICA
+   * Calcula prioridad y categoría basadas en análisis sin guardar en BD
+   */
+  private enriquecerReporte(report: any): any {
+    const triageNivel = report.triage?.nivel || 0;
+    const especialidad = report.especialidad || "";
+
+    // Calcular prioridad DINÁMICA
+    let prioridad = 2; // Default
+    if (triageNivel >= 4) {
+      prioridad = 5; // Crítico
+    } else if (triageNivel === 3) {
+      prioridad = 3; // Medio
+    } else if (triageNivel <= 2) {
+      prioridad = 2; // Bajo
+    }
+
+    // Ajustar por especialidad
+    if (
+      especialidad.toLowerCase().includes("emergencia") ||
+      especialidad.toLowerCase().includes("trauma") ||
+      especialidad.toLowerCase().includes("urgencia")
+    ) {
+      prioridad = Math.max(prioridad, 4);
+    }
+
+    // Categoría textual
+    let categoria = "medio";
+    if (prioridad === 5) categoria = "crítico";
+    else if (prioridad === 4) categoria = "alto";
+    else if (prioridad === 2) categoria = "bajo";
+
+    return {
+      ...report,
+      // Categorización calculada dinámicamente
+      categorizacion: {
+        prioridad,
+        categoria,
+        calculadaEn: new Date(),
+      },
+    };
+  }
+
+  /**
+   * Procesa solo la transcripción de audio sin análisis
+   */
+  async transcribeAudioOnly(
+    audioBuffer: Buffer,
+    audioFormat: string = "mp3",
+    context?: string,
+  ): Promise<any> {
+    try {
+      this.logger.log("🎙️ Transcribiendo audio...");
+
+      const result = await this.audioService.processAudioBuffer(
+        audioBuffer,
+        audioFormat,
+        context,
+      );
+
+      return {
+        success: true,
+        transcription: result.transcription.text,
+        audioSizeBytes: result.audioSizeBytes,
+        processingTimeMs: result.processingTimeMs,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error transcribiendo: ${error.message}`);
+      throw new BadRequestException(`Error en transcripción: ${error.message}`);
     }
   }
 }

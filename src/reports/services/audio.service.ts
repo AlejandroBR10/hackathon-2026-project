@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface TranscriptionResult {
   text: string;
@@ -31,12 +31,12 @@ export class AudioService {
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>(
-      'GOOGLE_GENERATIVE_AI_API_KEY',
+      "GOOGLE_GENERATIVE_AI_API_KEY",
     );
 
     if (!apiKey) {
       throw new Error(
-        'GOOGLE_GENERATIVE_AI_API_KEY no está configurada en .env',
+        "GOOGLE_GENERATIVE_AI_API_KEY no está configurada en .env",
       );
     }
 
@@ -52,12 +52,12 @@ export class AudioService {
    */
   async transcribeAudio(
     audioBuffer: Buffer,
-    audioMimeType: string = 'audio/mp3',
+    audioMimeType: string = "audio/mp3",
     context?: string,
   ): Promise<TranscriptionResult> {
     try {
       if (!this.validateAudioFile(audioBuffer, audioMimeType)) {
-        throw new Error('Archivo de audio inválido');
+        throw new Error("Archivo de audio inválido");
       }
 
       this.logger.log(
@@ -65,14 +65,14 @@ export class AudioService {
       );
 
       const model = this.client.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+        model: "gemini-2.5-flash",
         generationConfig: {
           temperature: 0.2, // Bajo para transcripción precisa
         },
       });
 
       // Convertir a base64
-      const audioBase64 = audioBuffer.toString('base64');
+      const audioBase64 = audioBuffer.toString("base64");
 
       // System prompt especializado para audio médico
       const systemPrompt = `Eres un transcriptor médico profesional del Hospital Moscati de Alta Especialidad.
@@ -87,7 +87,7 @@ INSTRUCCIONES CRÍTICAS:
 6. NO edites, NO corrijas, NO interpretes - solo transcribe
 7. Responde ÚNICAMENTE con el texto transcrito
 
-${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
+${context ? `CONTEXTO CLÍNICO: ${context}` : ""}`;
 
       const result = await model.generateContent([
         {
@@ -100,14 +100,14 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
           },
         },
         {
-          text: 'Transcribe este audio médico completamente.',
+          text: "Transcribe este audio médico completamente.",
         },
       ]);
 
       const transcribedText = result.response.text().trim();
 
       if (!transcribedText || transcribedText.length === 0) {
-        throw new Error('No se pudo generar transcripción');
+        throw new Error("No se pudo generar transcripción");
       }
 
       this.logger.log(
@@ -118,9 +118,9 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
         text: transcribedText,
         duration: undefined,
         confidence: 0.95,
-        language: 'es',
+        language: "es",
         metadata: {
-          model: 'gemini-1.5-flash',
+          model: "gemini-2.5-flash",
           audioSizeBytes: audioBuffer.length,
           mimeType: audioMimeType,
           transcribedAt: new Date().toISOString(),
@@ -132,7 +132,7 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
         error.stack,
       );
       throw new Error(
-        `Fallo en transcripción: ${error.message || 'Error desconocido'}`,
+        `Fallo en transcripción: ${error.message || "Error desconocido"}`,
       );
     }
   }
@@ -168,9 +168,7 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
 
       const processingTimeMs = Date.now() - startTime;
 
-      this.logger.log(
-        `✨ Archivo procesado en ${processingTimeMs}ms`,
-      );
+      this.logger.log(`✨ Archivo procesado en ${processingTimeMs}ms`);
 
       return {
         transcription,
@@ -196,7 +194,7 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
    */
   async processAudioBuffer(
     audioBuffer: Buffer,
-    audioFormat: string = 'mp3',
+    audioFormat: string = "mp3",
     context?: string,
   ): Promise<AudioProcessingResult> {
     try {
@@ -216,9 +214,7 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
 
       const processingTimeMs = Date.now() - startTime;
 
-      this.logger.log(
-        `✨ Buffer procesado en ${processingTimeMs}ms`,
-      );
+      this.logger.log(`✨ Buffer procesado en ${processingTimeMs}ms`);
 
       return {
         transcription,
@@ -242,7 +238,7 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
   validateAudioFile(buffer: Buffer, mimeType: string): boolean {
     // Validar tamaño
     if (buffer.length === 0) {
-      this.logger.warn('⚠️ Audio vacío');
+      this.logger.warn("⚠️ Audio vacío");
       return false;
     }
 
@@ -255,13 +251,13 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
 
     // Validar MIME type
     const validMimeTypes = [
-      'audio/mp3',
-      'audio/mpeg',
-      'audio/wav',
-      'audio/ogg',
-      'audio/mp4',
-      'audio/flac',
-      'audio/webm',
+      "audio/mp3",
+      "audio/mpeg",
+      "audio/wav",
+      "audio/ogg",
+      "audio/mp4",
+      "audio/flac",
+      "audio/webm",
     ];
 
     if (!validMimeTypes.includes(mimeType)) {
@@ -277,22 +273,22 @@ ${context ? `CONTEXTO CLÍNICO: ${context}` : ''}`;
    */
   private getMimeTypeFromExtension(ext: string): string {
     const mimeTypes: Record<string, string> = {
-      '.mp3': 'audio/mp3',
-      '.mpeg': 'audio/mpeg',
-      '.wav': 'audio/wav',
-      '.ogg': 'audio/ogg',
-      '.m4a': 'audio/mp4',
-      '.flac': 'audio/flac',
-      '.webm': 'audio/webm',
+      ".mp3": "audio/mp3",
+      ".mpeg": "audio/mpeg",
+      ".wav": "audio/wav",
+      ".ogg": "audio/ogg",
+      ".m4a": "audio/mp4",
+      ".flac": "audio/flac",
+      ".webm": "audio/webm",
     };
 
-    return mimeTypes[ext.toLowerCase()] || 'audio/mp3';
+    return mimeTypes[ext.toLowerCase()] || "audio/mp3";
   }
 
   /**
    * Obtiene información sobre los formatos soportados
    */
   getSupportedFormats(): string[] {
-    return ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.webm'];
+    return [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".webm"];
   }
 }
