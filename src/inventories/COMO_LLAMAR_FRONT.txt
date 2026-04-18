@@ -1,0 +1,47 @@
+// Función para el Frontend (React, Vue, Vanilla JS, etc.)
+const enviarFotoYAuditoria = async (archivoImagen, cantTotalEsperada) => {
+  // 1. Armamos el paquete de datos (form-data es obligatorio para fotos)
+  const formData = new FormData();
+  
+  // Metemos la foto
+  formData.append('file', archivoImagen);
+  
+  // Metemos el número total de piezas que el doctor dice que hay
+  formData.append('total_esperado', cantTotalEsperada); 
+
+  try {
+    console.log("Enviando datos a NestJS...");
+    
+    // 2. Le pegamos a tu API
+    const respuesta = await fetch('http://localhost:3000/almacen/contar-quirurgico', {
+      method: 'POST',
+      body: formData,
+      // ⚠️ DATO VITAL PARA TU COMPA: 
+      // Cuando se manda FormData, NUNCA se pone el header 'Content-Type'. 
+      // El navegador lo tiene que poner solito para que no truene.
+    });
+
+    // 3. Recibimos tu veredicto
+    const datos = await respuesta.json();
+    console.log("Respuesta del servidor:", datos);
+    
+    // 4. Lógica de la interfaz (Qué mostrar en pantalla)
+    if (datos.estado_operacion === "PELIGRO") {
+      // Aquí el front puede pintar la pantalla de rojo o lanzar un modal
+      alert(`🔴 ${datos.mensaje_sistema}`); 
+    } else {
+      // Todo cuadró perfecto
+      alert(`✅ ${datos.mensaje_sistema}`);
+    }
+
+  } catch (error) {
+    console.error("Error contactando al backend de NestJS:", error);
+  }
+};
+
+// Ejemplo de cómo se llamaría a la función al darle clic al botón "Auditar"
+const inputArchivo = document.getElementById('mi-input-de-foto');
+const inputNumero = document.getElementById('input-total-piezas');
+
+// Se le pasa el archivo real y el valor del número
+enviarFotoYAuditoria(inputArchivo.files[0], inputNumero.value);
