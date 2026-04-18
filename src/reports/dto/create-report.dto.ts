@@ -13,10 +13,6 @@ export class CreateReportDto {
   @IsNotEmpty({ message: "El ID del paciente es requerido" })
   patientId: string;
 
-  @IsMongoId({ message: "El ID del médico debe ser un MongoDB ID válido" })
-  @IsNotEmpty({ message: "El ID del médico es requerido" })
-  doctorId: string;
-
   @IsString({ message: "El dictado debe ser un texto válido" })
   @IsNotEmpty({ message: "El dictado médico es requerido" })
   @MinLength(10, { message: "El dictado debe tener al menos 10 caracteres" })

@@ -29,8 +29,4 @@ export class CreateAiDto {
   @IsString({ message: "El ID del paciente debe ser un texto válido" })
   @IsOptional()
   patientId?: string;
-
-  @IsString({ message: "El ID del médico debe ser un texto válido" })
-  @IsOptional()
-  doctorId?: string;
 }

@@ -92,4 +92,67 @@ export class PatientsService {
 
     return { message: "Triage agregado a todos los pacientes" };
   }
+
+  async update(id: string, data: any) {
+    const patient = await this.patientModel.findById(id);
+
+    if (!patient) {
+      throw new Error("Paciente no encontrado");
+    }
+
+    // Merge de datos actuales + nuevos
+    const updatedData = {
+      ...patient.toObject(),
+      ...data,
+    };
+
+    // 🔥 recalcular triage
+    const triage = this.calculateTriage(updatedData);
+
+    return this.patientModel.findByIdAndUpdate(
+      id,
+      {
+        ...data,
+        triage,
+      },
+      { new: true },
+    );
+  }
+
+  async remove(id: string) {
+    const patient = await this.patientModel.findByIdAndDelete(id);
+
+    if (!patient) {
+      throw new Error("Paciente no encontrado");
+    }
+
+    return {
+      message: "Paciente eliminado correctamente",
+      patient,
+    };
+  }
+
+  async updateVitals(id: string, vitalSigns: any) {
+    const patient = await this.patientModel.findById(id);
+
+    if (!patient) {
+      throw new Error("Paciente no encontrado");
+    }
+
+    const updatedData = {
+      ...patient.toObject(),
+      vitalSigns,
+    };
+
+    const triage = this.calculateTriage(updatedData);
+
+    return this.patientModel.findByIdAndUpdate(
+      id,
+      {
+        vitalSigns,
+        triage,
+      },
+      { new: true },
+    );
+  }
 }

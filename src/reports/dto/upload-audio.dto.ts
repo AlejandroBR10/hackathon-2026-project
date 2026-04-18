@@ -15,11 +15,6 @@ export class UploadAudioDto {
   patientId: string;
 
   @IsString()
-  @IsNotEmpty({ message: "El ID del médico es requerido" })
-  @IsMongoId({ message: "El ID del médico debe ser un MongoDB ID válido" })
-  doctorId: string;
-
-  @IsString()
   @IsOptional()
   @IsEnum([
     "Trauma",
@@ -75,11 +70,6 @@ export class ProcessAudioWithFeedbackDto {
   @IsNotEmpty({ message: "El ID del paciente es requerido" })
   @IsMongoId()
   patientId: string;
-
-  @IsString()
-  @IsNotEmpty({ message: "El ID del médico es requerido" })
-  @IsMongoId()
-  doctorId: string;
 
   @IsString()
   @IsOptional()

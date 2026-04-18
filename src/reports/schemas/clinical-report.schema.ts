@@ -47,8 +47,8 @@ export class ClinicalReport extends Document {
   @Prop({ type: Types.ObjectId, required: true, index: true })
   patientId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true, index: true })
-  doctorId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, required: false, index: true })
+  doctorId?: Types.ObjectId;
 
   @Prop({
     type: String,
