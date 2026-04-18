@@ -1,14 +1,23 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { PatientsModule } from './patients/patients.module';
-import { ReportsModule } from './reports/reports.module';
-import { VisionModule } from './vision/vision.module';
-import { AiModule } from './ai/ai.module';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { PatientsModule } from "./patients/patients.module";
+import { ReportsModule } from "./reports/reports.module";
+import { VisionModule } from "./vision/vision.module";
+import { AiModule } from "./ai/ai.module";
+import { DatabaseModule } from "./database/database.module";
 
 @Module({
-  imports: [PatientsModule, ReportsModule, VisionModule, AiModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    DatabaseModule,
+
+    // AGREGAR LOS MODULOS NECESARIOS
+    PatientsModule,
+    ReportsModule,
+    VisionModule,
+    AiModule,
+  ],
 })
 export class AppModule {}
