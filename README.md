@@ -1,98 +1,192 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Hackathon 2026 Project
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Descripción
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Aplicación NestJS para gestión de pacientes, reportes, visión y análisis de inteligencia artificial. Este proyecto utiliza MongoDB como base de datos y proporciona una API REST completa para la administración de información médica y análisis con IA.
 
-## Description
+## Stack Tecnológico
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Framework**: NestJS 11.0.1
+- **Lenguaje**: TypeScript
+- **Base de Datos**: MongoDB con Mongoose ODM
+- **Node.js**: ES Modules
 
-## Project setup
+## Estructura del Proyecto
 
-```bash
-$ npm install
+```
+src/
+├── main.ts                      # Punto de entrada de la aplicación
+├── app.module.ts                # Módulo raíz
+├── ai/                          # Módulo de IA
+│   ├── ai.controller.ts
+│   ├── ai.service.ts
+│   ├── ai.module.ts
+│   ├── dto/
+│   │   ├── create-ai.dto.ts
+│   │   └── update-ai.dto.ts
+│   └── entities/
+│       └── ai.entity.ts
+├── patients/                    # Módulo de Pacientes
+│   ├── patients.controller.ts
+│   ├── patients.service.ts
+│   ├── patients.module.ts
+│   ├── dto/
+│   │   ├── create-patient.dto.ts
+│   │   └── update-patient.dto.ts
+│   ├── entities/
+│   │   └── patient.entity.ts
+│   └── schemas/
+│       └── patients.schema.ts
+├── reports/                     # Módulo de Reportes
+│   ├── reports.controller.ts
+│   ├── reports.service.ts
+│   ├── reports.module.ts
+│   ├── dto/
+│   │   ├── create-report.dto.ts
+│   │   └── update-report.dto.ts
+│   └── entities/
+│       └── report.entity.ts
+├── vision/                      # Módulo de Visión
+│   ├── vision.controller.ts
+│   ├── vision.service.ts
+│   ├── vision.module.ts
+│   ├── dto/
+│   │   ├── create-vision.dto.ts
+│   │   └── update-vision.dto.ts
+│   └── entities/
+│       └── vision.entity.ts
+├── database/                    # Configuración de Base de Datos
+│   └── database.module.ts
+├── common/                      # Utilidades compartidas
+└── config/                      # Configuración general
 ```
 
-## Compile and run the project
+## Endpoints de la API
+
+### 🏥 Pacientes (`/patients`)
+
+| Método | Endpoint               | Descripción                       |
+| ------ | ---------------------- | --------------------------------- |
+| `POST` | `/patients`            | Crear nuevo paciente              |
+| `GET`  | `/patients`            | Obtener todos los pacientes       |
+| `GET`  | `/patients/priority`   | Obtener pacientes por prioridad   |
+| `GET`  | `/patients/stats`      | Obtener estadísticas de pacientes |
+| `POST` | `/patients/fix-triage` | Corregir triage de pacientes      |
+
+### 📋 Reportes (`/reports`)
+
+| Método   | Endpoint       | Descripción                |
+| -------- | -------------- | -------------------------- |
+| `POST`   | `/reports`     | Crear nuevo reporte        |
+| `GET`    | `/reports`     | Obtener todos los reportes |
+| `GET`    | `/reports/:id` | Obtener reporte por ID     |
+| `PATCH`  | `/reports/:id` | Actualizar reporte         |
+| `DELETE` | `/reports/:id` | Eliminar reporte           |
+
+### 👁️ Visión (`/vision`)
+
+| Método   | Endpoint      | Descripción                          |
+| -------- | ------------- | ------------------------------------ |
+| `POST`   | `/vision`     | Crear nuevo análisis de visión       |
+| `GET`    | `/vision`     | Obtener todos los análisis de visión |
+| `GET`    | `/vision/:id` | Obtener análisis de visión por ID    |
+| `PATCH`  | `/vision/:id` | Actualizar análisis de visión        |
+| `DELETE` | `/vision/:id` | Eliminar análisis de visión          |
+
+### 🤖 IA (`/ai`)
+
+| Método   | Endpoint  | Descripción                      |
+| -------- | --------- | -------------------------------- |
+| `POST`   | `/ai`     | Crear nuevo análisis de IA       |
+| `GET`    | `/ai`     | Obtener todos los análisis de IA |
+| `GET`    | `/ai/:id` | Obtener análisis de IA por ID    |
+| `PATCH`  | `/ai/:id` | Actualizar análisis de IA        |
+| `DELETE` | `/ai/:id` | Eliminar análisis de IA          |
+
+## Instalación
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Instalar dependencias
+npm install
 ```
 
-## Run tests
+## Configuración
+
+Crea un archivo `.env` en la raíz del proyecto con las variables necesarias:
+
+```env
+DATABASE_URL=mongodb://localhost:27017/hackathon-2026
+NODE_ENV=development
+PORT=3000
+```
+
+## Compilación y Ejecución
 
 ```bash
-# unit tests
-$ npm run test
+# Modo desarrollo (con watch)
+npm run start:dev
 
-# e2e tests
-$ npm run test:e2e
+# Modo desarrollo (sin watch)
+npm run start
 
-# test coverage
-$ npm run test:cov
+# Modo producción
+npm run start:prod
+
+# Compilar para producción
+npm build
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Testing
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Ejecutar tests unitarios
+npm run test
+
+# Ejecutar tests en modo watch
+npm run test:watch
+
+# Ejecutar tests con cobertura
+npm run test:cov
+
+# Ejecutar tests e2e
+npm run test:e2e
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Otros Comandos
 
-## Resources
+```bash
+# Formatear código
+npm run format
 
-Check out a few resources that may come in handy when working with NestJS:
+# Linting y corrección automática
+npm run lint
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Dependencias Principales
 
-## Support
+- `@nestjs/common` - Módulos y decoradores comunes de NestJS
+- `@nestjs/core` - Core de NestJS
+- `@nestjs/config` - Gestión de configuración
+- `@nestjs/mongoose` - Integración con MongoDB/Mongoose
+- `@nestjs/platform-express` - Soporte para Express
+- `mongoose` - ODM para MongoDB
+- `mongodb` - Driver oficial de MongoDB
+- `rxjs` - Reactive extensions
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Requisitos Previos
 
-## Stay in touch
+- Node.js 18.0.0 o superior
+- MongoDB 4.0 o superior
+- npm 9.0.0 o superior
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Notas de Desarrollo
+
+- La aplicación utiliza TypeScript para type safety
+- Se utiliza MongoDB como base de datos NoSQL
+- Cada módulo tiene su propia estructura con controlador, servicio, DTOs y entidades
+- Los DTOs se utilizan para validar las requests
+- Se siguen las mejores prácticas de NestJS con arquitectura modular
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED
